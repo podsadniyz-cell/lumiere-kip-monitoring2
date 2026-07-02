@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация — Lumiere</title>
+
+    <!-- ===== ПОДКЛЮЧЕНИЕ SUPABASE ===== -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+
+    <style>
+        body {
+            background: #0B1120;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: white;
+        }
+        .register-box {
+            background: #1A2A44;
+            padding: 40px 50px;
+            border-radius: 24px;
+            width: 420px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            text-align: center;
+            border: 1px solid #2D3A5E;
+        }
+        .logo {
+            font-size: 2.8rem;
+            margin-bottom: 6px;
+            background: linear-gradient(135deg, #7AA9E0, #F1C40F);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 700;
+        }
+        input,
+        select {
+            width: 100%;
+            padding: 14px 16px;
+            margin: 10px 0;
+            background: #0F1828;
+            border: 1px solid #2D3A5E;
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+        input:focus,
+        select:focus {
+            border-color: #F1C40F;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #2ECC71;
+            color: #0B1120;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #27AE60;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(46, 204, 113, 0.3);
+        }
+        .error {
+            color: #E74C3C;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            min-height: 24px;
+        }
+        .link {
+            margin-top: 16px;
+            font-size: 0.9rem;
+            color: #8AA0C0;
+        }
+        .link a {
+            color: #F1C40F;
+            text-decoration: none;
+        }
+        .link a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 480px) {
+            .register-box {
+                padding: 30px 20px;
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="register-box">
+        <div class="logo">⚙️ LUMIERE</div>
+        <h2>Регистрация</h2>
+        <input type="text" id="fullName" placeholder="Имя и фамилия" value="Захар Подсадний">
+        <input type="email" id="email" placeholder="Email" value="podsadniyz@bk.ru">
+        <input type="password" id="password" placeholder="Пароль (минимум 6 символов)" value="123456">
+        <select id="role">
+            <option value="dispatcher">Диспетчер</option>
+            <option value="master">Мастер</option>
+            <option value="admin" selected>Администратор</option>
+        </select>
+        <button onclick="register()">Зарегистрироваться</button>
+        <div id="error" class="error"></div>
+        <div class="link">Уже есть аккаунт? <a href="login.html">Войти</a></div>
+    </div>
+
+    <script>
+        // ===== ПРОВЕРКА =====
+        if (typeof supabase === 'undefined') {
+            document.getElementById('error').textContent = '❌ Ошибка: Supabase не загружен';
+            console.error('❌ Supabase не загружен');
+        } else {
+            console.log('✅ Supabase загружен');
+        }
+
+        // ===== РЕГИСТРАЦИЯ =====
+        async function register() {
+            const fullName = document.getElementById('fullName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const role = document.getElementById('role').value;
+            const errorDiv = document.getElementById('error');
+
+            if (!fullName || !email || !password) {
+                errorDiv.textContent = '❌ Заполните все поля';
+                return;
+            }
+
+            if (password.length < 6) {
+                errorDiv.textContent = '❌ Пароль должен быть не менее 6 символов';
+                return;
+            }
+
+            try {
+                // === РЕГИСТРАЦИЯ В SUPABASE ===
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password
+                });
+
+                if (error) {
+                    errorDiv.textContent = '❌ ' + error.message;
+                    console.error('Ошибка регистрации:', error);
+                    return;
+                }
+
+                if (!data.user) {
+                    errorDiv.textContent = '❌ Не удалось создать пользователя';
+                    return;
+                }
+
+                // === СОХРАНЕНИЕ РОЛИ ===
+                const { error: insertError } = await supabase
+                    .from('users')
+                    .insert({
+                        id: data.user.id,
+                        email: email,
+                        full_name: fullName,
+                        role: role
+                    });
+
+                if (insertError) {
+                    errorDiv.textContent = '❌ Ошибка сохранения роли: ' + insertError.message;
+                    console.error('Ошибка сохранения роли:', insertError);
+                    return;
+                }
+
+                alert('✅ Регистрация успешна! Теперь войдите.');
+                window.location.href = 'login.html';
+
+            } catch (err) {
+                errorDiv.textContent = '❌ Ошибка: ' + err.message;
+                console.error(err);
+            }
+        }
+
+        // ===== ВХОД ПО ENTER =====
+        document.addEventListener('keypress', function(e) {
+            if (e.key === "Enter") {
+                register();
+            }
+        });
+    </script>
+</body>
+</html>
